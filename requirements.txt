@@ -1,0 +1,5 @@
+# Dependencias de la app.
+# pywin32 es lo que conversa con Outlook: solo se instala en Windows.
+pywin32>=306 ; sys_platform == "win32"
+# openpyxl permite importar destinatarios desde archivos .xlsx.
+openpyxl>=3.1

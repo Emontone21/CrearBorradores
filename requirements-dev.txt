@@ -1,0 +1,3 @@
+-r requirements.txt
+# Solo hace falta para generar el .exe.
+pyinstaller>=6.6

@@ -1,0 +1,12 @@
+Icono de la aplicacion (opcional)
+=================================
+
+Si dejas en esta carpeta un archivo llamado "icon.ico", build.bat lo usa
+automaticamente como icono del programa: es el dibujito que se ve en el
+Explorador de Windows, en la barra de tareas y en la ventana.
+
+Tiene que ser un .ico de verdad (no un .png renombrado). Podes convertir
+una imagen a .ico con cualquier conversor online o con Paint.NET/GIMP.
+Lo ideal es que incluya varios tamanos: 16, 32, 48 y 256 pixeles.
+
+Si no hay ningun icon.ico, la app funciona igual y usa el icono por defecto.
