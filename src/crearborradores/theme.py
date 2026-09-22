@@ -32,6 +32,7 @@ LIGHT = {
     "select": "#CFE3F7",
     "thumb": "#C8CDD4",
     "thumb_hover": "#A7AEB8",
+    "warn": "#B4690E",
     "shadow": "#E7E9EC",
 }
 
@@ -52,6 +53,7 @@ DARK = {
     "select": "#2C4257",
     "thumb": "#3C434C",
     "thumb_hover": "#4E5661",
+    "warn": "#E0A458",
     "shadow": "#0F1114",
 }
 
@@ -592,8 +594,33 @@ def style_ttk(root: tk.Misc, palette: dict) -> ttk.Style:
         borderwidth=0,
         relief="flat",
         width=8,
+        gripcount=0,
     )
     style.map("App.Vertical.TScrollbar", background=[("active", palette["thumb_hover"])])
+
+    style.layout(
+        "App.Horizontal.TScrollbar",
+        [(
+            "Horizontal.Scrollbar.trough",
+            {
+                "sticky": "ew",
+                "children": [("Horizontal.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})],
+            },
+        )],
+    )
+    style.configure(
+        "App.Horizontal.TScrollbar",
+        troughcolor=palette["surface"],
+        background=palette["thumb"],
+        bordercolor=palette["surface"],
+        lightcolor=palette["surface"],
+        darkcolor=palette["surface"],
+        borderwidth=0,
+        relief="flat",
+        width=8,
+        gripcount=0,
+    )
+    style.map("App.Horizontal.TScrollbar", background=[("active", palette["thumb_hover"])])
 
     style.configure(
         "App.Horizontal.TProgressbar",

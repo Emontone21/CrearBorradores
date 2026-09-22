@@ -160,6 +160,60 @@ def parse_recipients(text: str) -> ParseResult:
     return result
 
 
+@dataclass
+class Row:
+    """Una línea del cuadro PARA.
+
+    En modo uno a uno cada línea es un borrador, y su posición es la que
+    empareja con los valores de las variables. Por eso acá no se quitan
+    repetidos ni se reordena nada: correr una fila sería mandarle a un
+    supervisor los datos de otro.
+    """
+
+    number: int
+    text: str
+    recipients: list[Recipient] = field(default_factory=list)
+    invalid: list[str] = field(default_factory=list)
+
+    @property
+    def is_blank(self) -> bool:
+        return not self.text.strip()
+
+    @property
+    def is_usable(self) -> bool:
+        return bool(self.recipients)
+
+
+def parse_rows(text: str) -> list[Row]:
+    """Interpreta el cuadro PARA línea por línea, conservando el orden.
+
+    Solo se descartan las líneas en blanco del final. Una línea vacía en el
+    medio se conserva como fila sin destinatario, para que se vea el
+    problema en lugar de correr todo silenciosamente.
+    """
+    if not text:
+        return []
+
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    while lines and not lines[-1].strip():
+        lines.pop()
+
+    rows: list[Row] = []
+    for number, line in enumerate(lines, start=1):
+        row = Row(number=number, text=line)
+        if line.strip():
+            for chunk in _split_line(line):
+                if not chunk.strip():
+                    continue
+                recipient = _parse_entry(chunk)
+                if recipient is None:
+                    row.invalid.append(chunk.strip())
+                else:
+                    row.recipients.append(recipient)
+        rows.append(row)
+    return rows
+
+
 def extract_addresses(text: str) -> list[str]:
     """Saca todas las direcciones que aparezcan en un texto, sin duplicados."""
     seen: set[str] = set()

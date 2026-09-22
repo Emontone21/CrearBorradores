@@ -10,7 +10,8 @@ import html
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .emails import Recipient
+from .emails import Recipient, Row
+from .variables import Variable, render, values_for_index
 
 
 class Mode(str, Enum):
@@ -49,6 +50,7 @@ def build_specs(
     cc: list[Recipient] | None = None,
     bcc: list[Recipient] | None = None,
     attachments: list[str] | None = None,
+    values: dict[str, str] | None = None,
 ) -> list[DraftSpec]:
     """Arma la lista de borradores a crear.
 
@@ -59,6 +61,9 @@ def build_specs(
     cc_list = [r.format() for r in (cc or [])]
     bcc_list = [r.format() for r in (bcc or [])]
     files = list(attachments or [])
+    if values:
+        subject = render(subject, values)
+        body = render(body, values)
 
     if not recipients:
         return []
@@ -85,6 +90,54 @@ def build_specs(
             attachments=list(files),
         )
         for r in recipients
+    ]
+
+
+@dataclass
+class MergeRow:
+    """Una fila ya emparejada con los valores de sus variables."""
+
+    recipients: list[Recipient]
+    values: dict[str, str] = field(default_factory=dict)
+
+
+def build_merge_rows(rows: list[Row], variables: list[Variable]) -> list[MergeRow]:
+    """Empareja cada fila con los valores que le tocan, por posición.
+
+    Las filas sin destinatario se saltean junto con sus valores, así lo que
+    queda sigue alineado.
+    """
+    merged: list[MergeRow] = []
+    for index, row in enumerate(rows):
+        if not row.recipients:
+            continue
+        merged.append(MergeRow(list(row.recipients), values_for_index(variables, index)))
+    return merged
+
+
+def build_merge_specs(
+    merge_rows: list[MergeRow],
+    subject: str,
+    body: str,
+    cc: list[Recipient] | None = None,
+    bcc: list[Recipient] | None = None,
+    attachments: list[str] | None = None,
+) -> list[DraftSpec]:
+    """Un borrador por fila, con las variables ya reemplazadas."""
+    cc_list = [r.format() for r in (cc or [])]
+    bcc_list = [r.format() for r in (bcc or [])]
+    files = list(attachments or [])
+
+    return [
+        DraftSpec(
+            to=[r.format() for r in merge_row.recipients],
+            cc=list(cc_list),
+            bcc=list(bcc_list),
+            subject=render(subject, merge_row.values),
+            body=render(body, merge_row.values),
+            attachments=list(files),
+        )
+        for merge_row in merge_rows
     ]
 
 

@@ -11,6 +11,7 @@ from crearborradores.emails import (  # noqa: E402
     extract_addresses,
     is_valid_address,
     parse_recipients,
+    parse_rows,
 )
 
 
@@ -101,6 +102,51 @@ class TestParseo(unittest.TestCase):
     def test_comillas_en_el_nombre_no_rompen_el_formato(self):
         formatted = Recipient("ana@x.com", 'Ana "La Jefa"').format()
         self.assertEqual(formatted.count('"'), 2)
+
+
+class TestFilas(unittest.TestCase):
+    """La lectura por filas es la que sostiene la alineación con las variables."""
+
+    def test_una_fila_por_linea(self):
+        rows = parse_rows("ana@x.com\nluis@y.com")
+        self.assertEqual([r.number for r in rows], [1, 2])
+        self.assertEqual([r.recipients[0].address for r in rows], ["ana@x.com", "luis@y.com"])
+
+    def test_conserva_los_repetidos(self):
+        # Un supervisor con varios subordinados aparece varias veces a propósito.
+        rows = parse_rows("sup@x.com\notro@x.com\nsup@x.com")
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[0].recipients[0].address, rows[2].recipients[0].address)
+
+    def test_una_linea_invalida_ocupa_su_fila_igual(self):
+        rows = parse_rows("ana@x.com\nbasura\nluis@y.com")
+        self.assertEqual(len(rows), 3)
+        self.assertFalse(rows[1].is_usable)
+        self.assertEqual(rows[1].invalid, ["basura"])
+        self.assertEqual(rows[2].recipients[0].address, "luis@y.com")
+
+    def test_una_linea_vacia_del_medio_ocupa_su_fila(self):
+        rows = parse_rows("ana@x.com\n\nluis@y.com")
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(rows[1].is_blank)
+        self.assertFalse(rows[1].is_usable)
+
+    def test_quita_las_lineas_en_blanco_del_final(self):
+        rows = parse_rows("ana@x.com\nluis@y.com\n\n\n")
+        self.assertEqual(len(rows), 2)
+
+    def test_una_linea_con_varias_direcciones_es_una_sola_fila(self):
+        rows = parse_rows("ana@x.com; luis@y.com")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0].recipients), 2)
+
+    def test_texto_vacio(self):
+        self.assertEqual(parse_rows(""), [])
+        self.assertEqual(parse_rows("\n\n"), [])
+
+    def test_conserva_el_nombre_para_mostrar(self):
+        rows = parse_rows("Ana Pérez <ana@x.com>")
+        self.assertEqual(rows[0].recipients[0].display_name, "Ana Pérez")
 
 
 class TestExtraccion(unittest.TestCase):

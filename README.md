@@ -47,15 +47,17 @@ y enviar cuando quieras.
      el campo *Para*. Todos ven a todos.
 5. Completá **ASUNTO** y **MENSAJE**.
 6. Apretá **CREAR** (o `Ctrl + Enter`). Te muestra un resumen de lo que va a
-   pasar antes de hacer nada.
+   pasar antes de hacer nada. Si querés ver cómo queda cada correo, usá
+   **Vista previa**.
 7. Andá a Outlook → **Borradores**. Revisá y enviá.
 
 ### Funciones extra
 
 - **Importar…**: carga los destinatarios desde un archivo `.xlsx`, `.csv`,
-  `.tsv` o `.txt`. Busca direcciones de correo en **todas las hojas y
-  columnas**, saca los repetidos y los vuelca en el cuadro PARA para que los
-  revises antes de crear nada. No importa en qué columna estén.
+  `.tsv` o `.txt`. Si el archivo es una lista suelta de correos, busca
+  direcciones en **todas las hojas y columnas**, saca los repetidos y los
+  vuelca en el cuadro PARA. Si en cambio es una tabla con encabezados, cada
+  columna extra se carga como variable (ver más abajo).
 - **CC / CCO**: el tildado al lado de ASUNTO despliega los dos campos. En
   modo *correos únicos* la copia se repite en **cada** borrador (si son 30
   destinatarios, quien esté en CC recibe 30 correos cuando los envíes).
@@ -65,6 +67,62 @@ y enviar cuando quieras.
   destildás, el cuerpo se escribe como texto plano y sin firma.
 - La app recuerda tus preferencias (modo, firma, tamaño de la ventana) en
   `%APPDATA%\CrearBorradores\config.json`.
+
+### Variables en el mensaje
+
+Sirven para mandar el **mismo mensaje con un dato distinto en cada correo**:
+por ejemplo avisarle a cada supervisor sobre su subordinado.
+
+En el asunto y en el mensaje se escriben **entre corchetes**:
+
+> Hola, te escribo respecto de **[SUBORDINADO]**, de tu equipo: **[MOTIVO]**.
+> Tenés **[PLAZO]** para responder.
+
+![La app con variables](docs/pantalla-variables.png)
+
+Hay dos tipos:
+
+- **Por fila**: un valor distinto para cada borrador. La línea 1 de la
+  variable se usa con la línea 1 de PARA, la 2 con la 2, y así.
+- **Fijas**: el mismo valor en todos los borradores (por ejemplo `[PLAZO]`
+  = *5 días hábiles*). Se escriben una sola vez.
+
+**La forma más cómoda es importar una planilla.** Si el archivo tiene
+encabezados, la app te muestra las columnas que encontró y elegís cuáles
+convertir en variables (el nombre sale del encabezado):
+
+| Supervisor | Subordinado | Motivo |
+|---|---|---|
+| ana@empresa.com | Juan Pérez | vencimiento de capacitación |
+| luis@empresa.com | Marta Gómez | ausencia sin aviso |
+| ana@empresa.com | Diego Sosa | vencimiento de capacitación |
+
+Con esa planilla quedan `[SUBORDINADO]` y `[MOTIVO]` listas para usar. No
+importa en qué columna esté el correo ni cómo se llame: la app la detecta
+por el contenido.
+
+Fijate en el ejemplo que **Ana aparece dos veces**: como elegiste un
+borrador por fila, va a recibir **dos borradores separados**, uno por cada
+subordinado.
+
+También podés crear variables a mano con **+ Variable** y pegar los valores,
+uno por línea (por ejemplo copiando una columna de Excel). Haciendo clic en
+el nombre de una variable, se inserta en el mensaje donde tengas el cursor.
+
+Tres cosas que la app controla sola, porque equivocarse acá significa
+mandarle a un supervisor los datos de otro:
+
+- Al lado de cada variable se ve un contador tipo **3/3** (valores cargados
+  sobre filas). Si no coinciden, se pinta en naranja y **no te deja crear**
+  los borradores hasta que lo arregles.
+- Si una línea de PARA no tiene un correo válido, esa fila se saltea
+  **junto con sus valores**, así las demás no se corren.
+- El botón **Vista previa** te muestra cada borrador ya armado, con los
+  valores reemplazados, antes de crear nada.
+
+> Las variables por fila solo funcionan en modo **Uno a uno**. En modo grupo
+> hay un solo borrador, así que no existe "una fila por destinatario"; ahí
+> solo tienen sentido las fijas.
 
 ### Apariencia
 
@@ -143,6 +201,7 @@ CrearBorradores/
 │   ├── outlook.py              puente con Outlook por COM (pywin32)
 │   ├── drafts.py               arma los mensajes y el HTML del cuerpo
 │   ├── emails.py               parseo y validación de direcciones
+│   ├── variables.py            variables [NOMBRE] del asunto y el cuerpo
 │   ├── importers.py            importación desde Excel / CSV / TXT
 │   └── config.py               preferencias del usuario
 └── tests/                      tests (unittest, sin dependencias extra)
