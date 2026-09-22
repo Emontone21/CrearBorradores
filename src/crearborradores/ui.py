@@ -1,4 +1,8 @@
-"""Interfaz grafica de CrearBorradores (Tkinter)."""
+"""Interfaz gráfica de CrearBorradores.
+
+La apariencia (paleta, tipografías y controles dibujados a mano) vive en
+theme.py; acá está la ventana y toda la lógica de uso.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from . import APP_NAME, __version__
 from . import config as config_module
+from . import theme
 from .drafts import DraftSpec, Mode, build_specs
 from .emails import ParseResult, parse_recipients
 from .importers import FILE_TYPES, FileImportError, import_addresses
@@ -23,9 +28,11 @@ from .outlook import (
     open_drafts_folder,
 )
 
-PAD = 8
-DEFAULT_GEOMETRY = "1020x640"
-MIN_SIZE = (860, 540)
+GAP = 14
+DEFAULT_GEOMETRY = "1060x660"
+MIN_SIZE = (900, 560)
+LEFT_WIDTH = 290
+MAX_CHIPS = 3
 
 
 def _enable_dpi_awareness() -> None:
@@ -44,7 +51,7 @@ def _enable_dpi_awareness() -> None:
 
 
 def resource_path(relative: str) -> str:
-    """Ruta a un recurso, funcione desde el codigo o desde el .exe."""
+    """Ruta a un recurso, funcione desde el código o desde el .exe."""
     base = getattr(sys, "_MEIPASS", None)
     if base:
         return os.path.join(base, relative)
@@ -58,6 +65,8 @@ class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.config = config_module.load()
+        self.theme_name = theme.resolve_theme(self.config.get("theme", "auto"))
+        self.pal = theme.get_palette(self.theme_name)
         self.attachments: list[str] = []
 
         self._queue: "queue.Queue[tuple]" = queue.Queue()
@@ -65,9 +74,10 @@ class App:
         self._cancel = threading.Event()
         self._counter_job: str | None = None
 
+        self.fonts = theme.Fonts(root)
+        self.style = theme.style_ttk(root, self.pal)
+
         self._setup_window()
-        self._setup_style()
-        self._build_menu()
         self._build_ui()
         self._restore_preferences()
         self._update_counter()
@@ -77,9 +87,17 @@ class App:
     def _setup_window(self) -> None:
         self.root.title(APP_NAME)
         self.root.minsize(*MIN_SIZE)
+        self.root.configure(bg=self.pal["bg"])
         geometry = self.config.get("geometry") or ""
         self.root.geometry(geometry if "x" in geometry else DEFAULT_GEOMETRY)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        try:
+            scaling = self.root.winfo_fpixels("1i") / 72.0
+            if scaling > 0:
+                self.root.tk.call("tk", "scaling", scaling)
+        except Exception:
+            pass
 
         icon = resource_path(os.path.join("assets", "icon.ico"))
         if is_windows() and os.path.isfile(icon):
@@ -88,233 +106,329 @@ class App:
             except Exception:
                 pass
 
-    def _setup_style(self) -> None:
-        style = ttk.Style(self.root)
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
-        elif "clam" in style.theme_names():
-            style.theme_use("clam")
-
-        family = "Segoe UI" if is_windows() else "TkDefaultFont"
-        try:
-            import tkinter.font as tkfont
-
-            for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
-                font = tkfont.nametofont(name)
-                if is_windows():
-                    font.configure(family=family, size=10)
-            scaling = self.root.winfo_fpixels("1i") / 72.0
-            if scaling > 0:
-                self.root.tk.call("tk", "scaling", scaling)
-        except Exception:
-            pass
-
-        style.configure("Field.TLabel", font=(family, 10, "bold"))
-        style.configure("Hint.TLabel", foreground="#666666")
-        style.configure("Create.TButton", font=(family, 11, "bold"), padding=(18, 8))
-
-        self.text_font = (family if is_windows() else "TkTextFont", 10)
-        self.mono_font = ("Consolas" if is_windows() else "TkFixedFont", 10)
-
-    def _build_menu(self) -> None:
-        menubar = tk.Menu(self.root)
-
-        archivo = tk.Menu(menubar, tearoff=0)
-        archivo.add_command(
-            label="Importar destinatarios...", command=self._on_import, accelerator="Ctrl+O"
-        )
-        archivo.add_command(label="Adjuntar archivo...", command=self._on_attach)
-        archivo.add_separator()
-        archivo.add_command(label="Limpiar todo", command=self._on_clear_all)
-        archivo.add_separator()
-        archivo.add_command(label="Salir", command=self._on_close)
-        menubar.add_cascade(label="Archivo", menu=archivo)
-
-        ayuda = tk.Menu(menubar, tearoff=0)
-        ayuda.add_command(label="Acerca de", command=self._on_about)
-        menubar.add_cascade(label="Ayuda", menu=ayuda)
-
-        self.root.config(menu=menubar)
         self.root.bind("<Control-o>", lambda _e: self._on_import())
         self.root.bind("<Control-Return>", lambda _e: self._on_create())
 
+    # ------------------------------------------------------------- armado
+
+    def _eyebrow(self, parent: tk.Misc, text: str) -> tk.Label:
+        """Etiqueta chiquita en mayúsculas que titula cada campo."""
+        return tk.Label(
+            parent,
+            text=text,
+            bg=parent.cget("bg"),
+            fg=self.pal["text_muted"],
+            font=self.fonts.label,
+        )
+
+    def _muted(self, parent: tk.Misc, textvariable=None, text="", **kwargs) -> tk.Label:
+        return tk.Label(
+            parent,
+            text=text,
+            textvariable=textvariable,
+            bg=parent.cget("bg"),
+            fg=self.pal["text_muted"],
+            font=self.fonts.small,
+            justify="left",
+            anchor="w",
+            **kwargs,
+        )
+
+    def _text_area(self, parent: tk.Misc, **kwargs) -> tuple[theme.Field, tk.Text]:
+        """Un cuadro de texto multilínea con su borde y su barra que se esconde."""
+        field = theme.Field(parent, self.pal)
+        field.inner.rowconfigure(0, weight=1)
+        field.inner.columnconfigure(0, weight=1)
+        widget = tk.Text(
+            field.inner,
+            bg=self.pal["surface"],
+            fg=self.pal["text"],
+            insertbackground=self.pal["accent"],
+            selectbackground=self.pal["select"],
+            selectforeground=self.pal["text"],
+            relief="flat",
+            bd=0,
+            highlightthickness=0,
+            padx=12,
+            pady=10,
+            spacing1=1,
+            spacing3=3,
+            undo=True,
+            **kwargs,
+        )
+        widget.grid(row=0, column=0, sticky="nsew")
+        scroll = theme.AutoScrollbar(
+            field.inner,
+            orient="vertical",
+            style="App.Vertical.TScrollbar",
+            command=widget.yview,
+        )
+        scroll.grid(row=0, column=1, sticky="ns", padx=(0, 4), pady=6)
+        widget.configure(yscrollcommand=scroll.set)
+        field.track(widget)
+        return field, widget
+
     def _build_ui(self) -> None:
-        container = ttk.Frame(self.root, padding=PAD)
-        container.pack(fill="both", expand=True)
+        outer = tk.Frame(self.root, bg=self.pal["bg"], padx=16, pady=14)
+        outer.pack(fill="both", expand=True)
 
-        # Ojo con el orden: la barra de abajo se empaqueta primero para que
-        # siempre tenga lugar reservado y el boton CREAR nunca quede tapado.
-        self._build_bottom(container)
+        # El encabezado y la barra de abajo reservan su lugar antes que el
+        # cuerpo, para que nunca queden tapados al achicar la ventana.
+        self._build_header(outer)
+        self._build_bottom(outer)
 
-        paned = ttk.PanedWindow(container, orient="horizontal")
-        paned.pack(fill="both", expand=True)
-        paned.add(self._build_left(paned), weight=1)
-        paned.add(self._build_right(paned), weight=3)
+        body = tk.Frame(outer, bg=self.pal["bg"])
+        body.pack(fill="both", expand=True, pady=(12, 0))
+        body.columnconfigure(0, minsize=LEFT_WIDTH, weight=0)
+        body.columnconfigure(1, weight=1)
+        body.rowconfigure(0, weight=1)
 
-    def _build_left(self, parent: ttk.PanedWindow) -> ttk.Frame:
-        frame = ttk.Frame(parent, padding=(0, 0, PAD, 0))
-        frame.rowconfigure(1, weight=1)
-        frame.columnconfigure(0, weight=1)
+        left = theme.Card(body, self.pal)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, GAP))
+        right = theme.Card(body, self.pal)
+        right.grid(row=0, column=1, sticky="nsew")
 
-        ttk.Label(frame, text="PARA", style="Field.TLabel").grid(
-            row=0, column=0, sticky="w", pady=(0, 4)
+        self._build_left(left.inner)
+        self._build_right(right.inner)
+
+    def _build_header(self, parent: tk.Frame) -> None:
+        bar = tk.Frame(parent, bg=self.pal["bg"])
+        bar.pack(side="top", fill="x")
+
+        tk.Label(
+            bar,
+            text="Crear borradores",
+            bg=self.pal["bg"],
+            fg=self.pal["text"],
+            font=self.fonts.title,
+        ).pack(side="left")
+        tk.Label(
+            bar,
+            text="para Outlook",
+            bg=self.pal["bg"],
+            fg=self.pal["text_muted"],
+            font=self.fonts.small,
+        ).pack(side="left", padx=(10, 0), pady=(3, 0))
+
+        theme.RoundedButton(
+            bar, "?", self._on_about,
+            palette=self.pal, fonts=self.fonts, kind="ghost", width=32, height=30,
+        ).pack(side="right")
+        theme.RoundedButton(
+            bar, "Limpiar todo", self._on_clear_all,
+            palette=self.pal, fonts=self.fonts, kind="ghost", height=30,
+        ).pack(side="right", padx=(0, 4))
+
+    def _build_left(self, parent: tk.Frame) -> None:
+        parent.rowconfigure(1, weight=1)
+        parent.columnconfigure(0, weight=1)
+
+        self._eyebrow(parent, "PARA").grid(row=0, column=0, sticky="w", pady=(0, 7))
+
+        field, self.to_text = self._text_area(
+            parent, wrap="none", font=self.fonts.mono, width=24, height=6
         )
-        self.counter_var = tk.StringVar(value="")
-
-        box = ttk.Frame(frame)
-        box.grid(row=1, column=0, sticky="nsew")
-        box.rowconfigure(0, weight=1)
-        box.columnconfigure(0, weight=1)
-        self.to_text = tk.Text(box, wrap="none", undo=True, font=self.mono_font, width=28)
-        self.to_text.grid(row=0, column=0, sticky="nsew")
-        scroll = ttk.Scrollbar(box, orient="vertical", command=self.to_text.yview)
-        scroll.grid(row=0, column=1, sticky="ns")
-        self.to_text.configure(yscrollcommand=scroll.set)
+        field.grid(row=1, column=0, sticky="nsew")
         self.to_text.bind("<<Modified>>", self._on_to_modified)
+        self._install_placeholder(self.to_text, "ana@empresa.com\nluis@empresa.com")
 
-        ttk.Label(
-            frame, textvariable=self.counter_var, style="Hint.TLabel", wraplength=230
-        ).grid(row=2, column=0, sticky="w", pady=(4, 0))
-
-        buttons = ttk.Frame(frame)
-        buttons.grid(row=3, column=0, sticky="ew", pady=(6, 0))
-        buttons.columnconfigure(0, weight=1)
-        buttons.columnconfigure(1, weight=1)
-        ttk.Button(buttons, text="Importar...", command=self._on_import).grid(
-            row=0, column=0, sticky="ew", padx=(0, 3)
-        )
-        ttk.Button(buttons, text="Limpiar", command=self._on_clear_recipients).grid(
-            row=0, column=1, sticky="ew", padx=(3, 0)
+        self.counter_var = tk.StringVar(value="")
+        self._muted(parent, textvariable=self.counter_var, wraplength=LEFT_WIDTH - 40).grid(
+            row=2, column=0, sticky="ew", pady=(8, 0)
         )
 
-        mode_box = ttk.LabelFrame(frame, text="Cómo se envía", padding=6)
-        mode_box.grid(row=4, column=0, sticky="ew", pady=(PAD, 0))
-        mode_box.columnconfigure(0, weight=1)
+        buttons = tk.Frame(parent, bg=self.pal["surface"])
+        buttons.grid(row=3, column=0, sticky="w", pady=(10, 0))
+        theme.RoundedButton(
+            buttons, "Importar", self._on_import,
+            palette=self.pal, fonts=self.fonts, kind="secondary", height=32,
+        ).pack(side="left")
+        theme.RoundedButton(
+            buttons, "Limpiar", self._on_clear_recipients,
+            palette=self.pal, fonts=self.fonts, kind="ghost", height=32,
+        ).pack(side="left", padx=(6, 0))
+
+        self._eyebrow(parent, "ENVÍO").grid(row=4, column=0, sticky="w", pady=(22, 7))
+
         self.mode_var = tk.StringVar(value=Mode.INDIVIDUAL.value)
-        ttk.Radiobutton(
-            mode_box,
-            text="Correos únicos",
-            value=Mode.INDIVIDUAL.value,
-            variable=self.mode_var,
+        theme.Segmented(
+            parent,
+            [(Mode.INDIVIDUAL.value, "Uno a uno"), (Mode.GROUP.value, "Grupo")],
+            self.mode_var,
+            palette=self.pal,
+            fonts=self.fonts,
             command=self._update_counter,
-        ).grid(row=0, column=0, sticky="w")
-        ttk.Radiobutton(
-            mode_box,
-            text="Grupo (un solo correo)",
-            value=Mode.GROUP.value,
-            variable=self.mode_var,
-            command=self._update_counter,
-        ).grid(row=1, column=0, sticky="w")
+        ).grid(row=5, column=0, sticky="ew")
+
         self.mode_hint_var = tk.StringVar(value="")
-        ttk.Label(
-            mode_box, textvariable=self.mode_hint_var, style="Hint.TLabel", wraplength=220
-        ).grid(row=2, column=0, sticky="w", pady=(4, 0))
-
-        return frame
-
-    def _build_right(self, parent: ttk.PanedWindow) -> ttk.Frame:
-        frame = ttk.Frame(parent)
-        frame.rowconfigure(3, weight=1)
-        frame.columnconfigure(0, weight=1)
-
-        subject_row = ttk.Frame(frame)
-        subject_row.grid(row=0, column=0, sticky="ew")
-        subject_row.columnconfigure(1, weight=1)
-        ttk.Label(subject_row, text="ASUNTO", style="Field.TLabel").grid(
-            row=0, column=0, sticky="w", padx=(0, PAD)
+        self._muted(parent, textvariable=self.mode_hint_var, wraplength=LEFT_WIDTH - 40).grid(
+            row=6, column=0, sticky="ew", pady=(8, 0)
         )
-        self.subject_var = tk.StringVar()
-        self.subject_entry = ttk.Entry(subject_row, textvariable=self.subject_var)
-        self.subject_entry.grid(row=0, column=1, sticky="ew")
+
+    def _build_right(self, parent: tk.Frame) -> None:
+        parent.rowconfigure(4, weight=1)
+        parent.columnconfigure(0, weight=1)
+
+        head = tk.Frame(parent, bg=self.pal["surface"])
+        head.grid(row=0, column=0, sticky="ew", pady=(0, 7))
+        self._eyebrow(head, "ASUNTO").pack(side="left", pady=(6, 0))
         self.cc_toggle_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            subject_row,
-            text="CC / CCO",
-            variable=self.cc_toggle_var,
-            command=self._on_toggle_cc,
-        ).grid(row=0, column=2, sticky="e", padx=(PAD, 0))
+        self.cc_button = theme.RoundedButton(
+            head, "+  CC y CCO", self._on_toggle_cc,
+            palette=self.pal, fonts=self.fonts, kind="link", height=28,
+        )
+        self.cc_button.pack(side="right")
 
-        self.cc_frame = ttk.Frame(frame)
-        self.cc_frame.grid(row=1, column=0, sticky="ew", pady=(6, 0))
-        self.cc_frame.columnconfigure(1, weight=1)
-        ttk.Label(self.cc_frame, text="CC").grid(row=0, column=0, sticky="w", padx=(0, PAD))
+        subject_field = theme.Field(parent, self.pal)
+        subject_field.grid(row=1, column=0, sticky="ew")
+        self.subject_var = tk.StringVar()
+        subject_entry = tk.Entry(
+            subject_field.inner,
+            textvariable=self.subject_var,
+            bg=self.pal["surface"],
+            fg=self.pal["text"],
+            insertbackground=self.pal["accent"],
+            selectbackground=self.pal["select"],
+            selectforeground=self.pal["text"],
+            relief="flat",
+            bd=0,
+            highlightthickness=0,
+            font=self.fonts.body,
+        )
+        subject_entry.pack(fill="x", padx=12, pady=10)
+        subject_field.track(subject_entry)
+
+        # CC y CCO van lado a lado, con el titulito arriba, para que el
+        # borde izquierdo quede alineado con ASUNTO y MENSAJE.
+        self.cc_frame = tk.Frame(parent, bg=self.pal["surface"])
+        self.cc_frame.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        self.cc_frame.columnconfigure(0, weight=1, uniform="cc")
+        self.cc_frame.columnconfigure(1, weight=1, uniform="cc")
         self.cc_var = tk.StringVar()
-        ttk.Entry(self.cc_frame, textvariable=self.cc_var).grid(row=0, column=1, sticky="ew")
-        ttk.Label(self.cc_frame, text="CCO").grid(
-            row=1, column=0, sticky="w", padx=(0, PAD), pady=(4, 0)
-        )
         self.bcc_var = tk.StringVar()
-        ttk.Entry(self.cc_frame, textvariable=self.bcc_var).grid(
-            row=1, column=1, sticky="ew", pady=(4, 0)
-        )
+        for column, (text, variable) in enumerate(
+            (("CC", self.cc_var), ("CCO", self.bcc_var))
+        ):
+            holder = tk.Frame(self.cc_frame, bg=self.pal["surface"])
+            holder.grid(
+                row=0,
+                column=column,
+                sticky="ew",
+                padx=(0, 7) if column == 0 else (7, 0),
+            )
+            self._eyebrow(holder, text).pack(anchor="w", pady=(0, 6))
+            box = theme.Field(holder, self.pal)
+            box.pack(fill="x")
+            entry = tk.Entry(
+                box.inner,
+                textvariable=variable,
+                bg=self.pal["surface"],
+                fg=self.pal["text"],
+                insertbackground=self.pal["accent"],
+                selectbackground=self.pal["select"],
+                selectforeground=self.pal["text"],
+                relief="flat",
+                bd=0,
+                highlightthickness=0,
+                font=self.fonts.body,
+            )
+            entry.pack(fill="x", padx=12, pady=9)
+            box.track(entry)
         self.cc_frame.grid_remove()
 
-        ttk.Label(frame, text="BODY", style="Field.TLabel").grid(
-            row=2, column=0, sticky="w", pady=(PAD, 4)
+        self._eyebrow(parent, "MENSAJE").grid(row=3, column=0, sticky="w", pady=(18, 7))
+
+        field, self.body_text = self._text_area(
+            parent, wrap="word", font=self.fonts.body, height=8
         )
+        field.grid(row=4, column=0, sticky="nsew")
+        self._install_placeholder(self.body_text, "Escribí acá el cuerpo del correo...")
 
-        body_box = ttk.Frame(frame)
-        body_box.grid(row=3, column=0, sticky="nsew")
-        body_box.rowconfigure(0, weight=1)
-        body_box.columnconfigure(0, weight=1)
-        self.body_text = tk.Text(body_box, wrap="word", undo=True, font=self.text_font)
-        self.body_text.grid(row=0, column=0, sticky="nsew")
-        body_scroll = ttk.Scrollbar(body_box, orient="vertical", command=self.body_text.yview)
-        body_scroll.grid(row=0, column=1, sticky="ns")
-        self.body_text.configure(yscrollcommand=body_scroll.set)
+    def _build_bottom(self, parent: tk.Frame) -> None:
+        bar = tk.Frame(parent, bg=self.pal["bg"])
+        bar.pack(side="bottom", fill="x", pady=(GAP, 0))
 
-        self.attach_frame = ttk.Frame(frame)
-        self.attach_frame.grid(row=4, column=0, sticky="ew", pady=(6, 0))
-        self.attach_frame.columnconfigure(0, weight=1)
-        self.attach_list = tk.Listbox(
-            self.attach_frame,
-            height=2,
-            font=self.text_font,
-            selectmode="extended",
-            exportselection=False,
+        self.create_button = theme.RoundedButton(
+            bar, "CREAR", self._on_create,
+            palette=self.pal, fonts=self.fonts, kind="accent", width=150, height=42,
         )
-        self.attach_list.grid(row=0, column=0, sticky="ew")
-        ttk.Button(self.attach_frame, text="Quitar", command=self._on_remove_attachment).grid(
-            row=0, column=1, sticky="n", padx=(6, 0)
-        )
-        self.attach_frame.grid_remove()
+        self.create_button.pack(side="right")
 
-        return frame
-
-    def _build_bottom(self, container: ttk.Frame) -> None:
-        bar = ttk.Frame(container)
-        bar.pack(side="bottom", fill="x", pady=(PAD, 0))
-        bar.columnconfigure(2, weight=1)
-
-        ttk.Button(bar, text="Adjuntar...", command=self._on_attach).grid(
-            row=0, column=0, sticky="w"
-        )
-        self.signature_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(bar, text="Incluir mi firma", variable=self.signature_var).grid(
-            row=0, column=1, sticky="w", padx=(PAD, 0)
+        holder = tk.Frame(bar, bg=self.pal["bg"], width=150, height=42)
+        holder.pack(side="right", padx=(0, 14))
+        holder.pack_propagate(False)
+        self.progress = ttk.Progressbar(
+            holder, style="App.Horizontal.TProgressbar", mode="determinate"
         )
 
         self.status_var = tk.StringVar(value="")
-        ttk.Label(bar, textvariable=self.status_var, style="Hint.TLabel", anchor="e").grid(
-            row=0, column=2, sticky="ew", padx=PAD
-        )
+        tk.Label(
+            bar,
+            textvariable=self.status_var,
+            bg=self.pal["bg"],
+            fg=self.pal["text_soft"],
+            font=self.fonts.small,
+            anchor="e",
+        ).pack(side="right", padx=(0, 4))
 
-        self.progress = ttk.Progressbar(bar, mode="determinate", length=160)
-        self.progress.grid(row=0, column=3, sticky="e", padx=(0, PAD))
-        self.progress.grid_remove()
+        self.signature_var = tk.BooleanVar(value=True)
+        theme.CheckBox(
+            bar, "Incluir mi firma", self.signature_var,
+            palette=self.pal, fonts=self.fonts,
+        ).pack(side="right", padx=(16, 18))
 
-        self.create_button = ttk.Button(
-            bar, text="CREAR", style="Create.TButton", command=self._on_create
-        )
-        self.create_button.grid(row=0, column=4, sticky="e")
+        theme.RoundedButton(
+            bar, "+  Adjuntar", self._on_attach,
+            palette=self.pal, fonts=self.fonts, kind="secondary", height=34,
+        ).pack(side="left")
+        self.chips_frame = tk.Frame(bar, bg=self.pal["bg"])
+        self.chips_frame.pack(side="left", padx=(8, 0))
 
     def _restore_preferences(self) -> None:
         mode = self.config.get("mode", Mode.INDIVIDUAL.value)
         self.mode_var.set(mode if mode in (m.value for m in Mode) else Mode.INDIVIDUAL.value)
         self.signature_var.set(bool(self.config.get("include_signature", True)))
-        if self.config.get("show_cc"):
-            self.cc_toggle_var.set(True)
-            self.cc_frame.grid()
+        self.cc_toggle_var.set(bool(self.config.get("show_cc")))
+        self._apply_cc_visibility()
+
+    # ------------------------------------------------- texto de ejemplo gris
+
+    def _install_placeholder(self, widget: tk.Text, text: str) -> None:
+        """Muestra un ejemplo gris mientras el cuadro esté vacío.
+
+        Va como una etiqueta apoyada encima del cuadro, no como contenido,
+        así no hay manera de que termine mezclado con lo que se escriba.
+        """
+        label = tk.Label(
+            widget,
+            text=text,
+            bg=self.pal["surface"],
+            fg=self.pal["text_muted"],
+            font=widget.cget("font"),
+            justify="left",
+            anchor="nw",
+            bd=0,
+            padx=0,
+            pady=0,
+            highlightthickness=0,
+        )
+        label.bind("<Button-1>", lambda _e: widget.focus_set())
+
+        def refresh(_event=None) -> None:
+            widget.edit_modified(False)
+            if widget.get("1.0", "end-1c"):
+                label.place_forget()
+            else:
+                label.place(x=0, y=1)
+
+        widget.bind("<<Modified>>", refresh, add="+")
+        refresh()
+
+    def _text_value(self, widget: tk.Text) -> str:
+        return widget.get("1.0", "end-1c")
+
+    def _clear_text(self, widget: tk.Text) -> None:
+        widget.delete("1.0", "end")
 
     # --------------------------------------------------------------- acciones
 
@@ -329,7 +443,7 @@ class App:
 
     def _update_counter(self) -> None:
         self._counter_job = None
-        raw = self.to_text.get("1.0", "end-1c")
+        raw = self._text_value(self.to_text)
         if not raw.strip():
             self.counter_var.set("Una dirección por línea.")
             self._update_mode_hint(0)
@@ -341,28 +455,35 @@ class App:
         if result.invalid:
             parts.append(f"{len(result.invalid)} con error")
         if result.duplicates:
-            parts.append(f"{len(result.duplicates)} repetido" + ("" if len(result.duplicates) == 1 else "s"))
-        self.counter_var.set(" | ".join(parts))
+            repetidos = len(result.duplicates)
+            parts.append(f"{repetidos} repetido" + ("" if repetidos == 1 else "s"))
+        self.counter_var.set(" · ".join(parts))
         self._update_mode_hint(total)
 
     def _update_mode_hint(self, total: int) -> None:
         if self.mode_var.get() == Mode.GROUP.value:
+            self.mode_hint_var.set("Un solo borrador con todos en Para. Cada uno ve al resto.")
+        elif total:
             self.mode_hint_var.set(
-                "Se crea 1 borrador con todos en Para. Cada uno ve al resto."
+                f"{total} borradores, uno por persona. Nadie ve a los demás."
             )
         else:
-            self.mode_hint_var.set(
-                f"Se crean {total} borradores, uno por persona. Nadie ve a los demás."
-            )
+            self.mode_hint_var.set("Un borrador por persona. Nadie ve a los demás.")
 
     def _on_toggle_cc(self) -> None:
+        self.cc_toggle_var.set(not self.cc_toggle_var.get())
+        self._apply_cc_visibility()
+
+    def _apply_cc_visibility(self) -> None:
         if self.cc_toggle_var.get():
             self.cc_frame.grid()
+            self.cc_button.configure_text("Ocultar CC y CCO")
         else:
             self.cc_frame.grid_remove()
+            self.cc_button.configure_text("+  CC y CCO")
 
     def _on_clear_recipients(self) -> None:
-        self.to_text.delete("1.0", "end")
+        self._clear_text(self.to_text)
         self._update_counter()
 
     def _on_clear_all(self) -> None:
@@ -370,8 +491,8 @@ class App:
             APP_NAME, "Se va a borrar todo lo cargado. ¿Continuar?", parent=self.root
         ):
             return
-        self.to_text.delete("1.0", "end")
-        self.body_text.delete("1.0", "end")
+        self._clear_text(self.to_text)
+        self._clear_text(self.body_text)
         self.subject_var.set("")
         self.cc_var.set("")
         self.bcc_var.set("")
@@ -397,13 +518,13 @@ class App:
             messagebox.showerror(APP_NAME, str(exc), parent=self.root)
             return
 
-        current = self.to_text.get("1.0", "end-1c").rstrip()
+        current = self._text_value(self.to_text).rstrip()
         prefix = current + "\n" if current else ""
         self.to_text.delete("1.0", "end")
         self.to_text.insert("1.0", prefix + "\n".join(addresses))
         self._update_counter()
         self.status_var.set(
-            f"Se importaron {len(addresses)} direcciones de {os.path.basename(path)}"
+            f"{len(addresses)} direcciones importadas de {os.path.basename(path)}"
         )
 
     def _on_attach(self) -> None:
@@ -421,24 +542,25 @@ class App:
                 self.attachments.append(path)
         self._refresh_attachments()
 
-    def _on_remove_attachment(self) -> None:
-        selection = list(self.attach_list.curselection())
-        if not selection:
-            self.attachments.clear()
-        else:
-            for index in reversed(selection):
-                del self.attachments[index]
+    def _remove_attachment(self, path: str) -> None:
+        if path in self.attachments:
+            self.attachments.remove(path)
         self._refresh_attachments()
 
     def _refresh_attachments(self) -> None:
-        self.attach_list.delete(0, "end")
-        for path in self.attachments:
-            self.attach_list.insert("end", os.path.basename(path))
-        if self.attachments:
-            self.attach_list.configure(height=min(4, max(2, len(self.attachments))))
-            self.attach_frame.grid()
-        else:
-            self.attach_frame.grid_remove()
+        for child in self.chips_frame.winfo_children():
+            child.destroy()
+        for path in self.attachments[:MAX_CHIPS]:
+            theme.Chip(
+                self.chips_frame,
+                os.path.basename(path),
+                palette=self.pal,
+                fonts=self.fonts,
+                on_close=lambda p=path: self._remove_attachment(p),
+            ).pack(side="left", padx=(0, 6))
+        extra = len(self.attachments) - MAX_CHIPS
+        if extra > 0:
+            self._muted(self.chips_frame, text=f"+{extra} más").pack(side="left")
 
     def _on_about(self) -> None:
         messagebox.showinfo(
@@ -458,7 +580,7 @@ class App:
             self.status_var.set("Cancelando...")
             return
 
-        parsed = parse_recipients(self.to_text.get("1.0", "end-1c"))
+        parsed = parse_recipients(self._text_value(self.to_text))
         if not parsed.recipients:
             messagebox.showerror(
                 APP_NAME,
@@ -476,7 +598,7 @@ class App:
             return
 
         subject = self.subject_var.get().strip()
-        body = self.body_text.get("1.0", "end-1c")
+        body = self._text_value(self.body_text)
 
         if not subject and not messagebox.askyesno(
             APP_NAME, "El asunto está vacío. ¿Crear los borradores igual?", parent=self.root
@@ -557,9 +679,9 @@ class App:
 
     def _start_worker(self, specs: list[DraftSpec]) -> None:
         self._cancel.clear()
-        self.create_button.configure(text="CANCELAR")
+        self.create_button.configure_text("CANCELAR")
         self.progress.configure(value=0, maximum=len(specs))
-        self.progress.grid()
+        self.progress.pack(fill="x", expand=True)
         self.status_var.set(f"Creando 0 de {len(specs)}...")
 
         include_signature = bool(self.signature_var.get())
@@ -643,8 +765,8 @@ class App:
     def _finish(self) -> None:
         self._worker = None
         self._cancel.clear()
-        self.create_button.configure(text="CREAR")
-        self.progress.grid_remove()
+        self.create_button.configure_text("CREAR")
+        self.progress.pack_forget()
 
     def _report(self, created: int, errors: list[str], cancelled: bool, dry_run: bool) -> None:
         palabra = "borrador" if created == 1 else "borradores"

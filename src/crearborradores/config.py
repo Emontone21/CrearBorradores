@@ -15,6 +15,7 @@ from . import APP_NAME
 
 DEFAULTS: dict[str, Any] = {
     "mode": "individual",
+    "theme": "auto",
     "include_signature": True,
     "show_cc": False,
     "last_import_dir": "",

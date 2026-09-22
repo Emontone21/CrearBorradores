@@ -5,19 +5,8 @@ cargás los destinatarios, el asunto y el cuerpo, apretás **CREAR** y los
 mensajes quedan en la carpeta *Borradores* de Outlook, listos para revisar
 y enviar cuando quieras.
 
-```
-┌──────────┬────────────────────────────────────┐
-│  PARA    │  ASUNTO                            │
-│          ├────────────────────────────────────┤
-│ ana@x.com│                                    │
-│ luis@y.co│  BODY                              │
-│ eva@z.com│                                    │
-│          │                                    │
-│ ○ únicos │                                    │
-│ ● grupo  │                          ┌────────┐│
-│          │                          │ CREAR  ││
-└──────────┴──────────────────────────┴────────┘
-```
+![La app en modo claro](docs/pantalla-clara.png)
+
 
 ## Lo importante en tres líneas
 
@@ -56,7 +45,7 @@ y enviar cuando quieras.
      demás destinatarios**.
    - **Grupo (un solo correo)** → se crea **un solo borrador** con todos en
      el campo *Para*. Todos ven a todos.
-5. Completá **ASUNTO** y **BODY**.
+5. Completá **ASUNTO** y **MENSAJE**.
 6. Apretá **CREAR** (o `Ctrl + Enter`). Te muestra un resumen de lo que va a
    pasar antes de hacer nada.
 7. Andá a Outlook → **Borradores**. Revisá y enviá.
@@ -76,6 +65,15 @@ y enviar cuando quieras.
   destildás, el cuerpo se escribe como texto plano y sin firma.
 - La app recuerda tus preferencias (modo, firma, tamaño de la ventana) en
   `%APPDATA%\CrearBorradores\config.json`.
+
+### Apariencia
+
+Sigue el modo claro u oscuro que tengas configurado en Windows:
+
+![La app en modo oscuro](docs/pantalla-oscura.png)
+
+Para forzar uno de los dos, editá `%APPDATA%\CrearBorradores\config.json` y
+poné `"theme": "light"` o `"theme": "dark"` (por defecto es `"auto"`).
 
 ## Cómo generar el `.exe` para repartir
 
@@ -141,6 +139,7 @@ CrearBorradores/
 ├── build.bat                   genera el .exe
 ├── src/crearborradores/
 │   ├── ui.py                   la ventana (Tkinter)
+│   ├── theme.py                paleta, tipografías y controles dibujados
 │   ├── outlook.py              puente con Outlook por COM (pywin32)
 │   ├── drafts.py               arma los mensajes y el HTML del cuerpo
 │   ├── emails.py               parseo y validación de direcciones
