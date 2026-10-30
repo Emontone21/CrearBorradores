@@ -1,5 +1,7 @@
 import { NavLink, Route, Routes } from 'react-router';
 import { Ficha } from './paginas/Ficha.tsx';
+import { Hoy } from './paginas/Hoy.tsx';
+import { Mensual } from './paginas/Mensual.tsx';
 import { Ritual } from './paginas/ritual/Ritual.tsx';
 import { Tablero } from './paginas/Tablero.tsx';
 
@@ -41,9 +43,9 @@ export function App() {
         <Routes>
           <Route path="/" element={<Tablero />} />
           <Route path="/proyectos/:id" element={<Ficha />} />
-          <Route path="/hoy" element={<Pronto titulo="Hoy" />} />
+          <Route path="/hoy" element={<Hoy />} />
           <Route path="/ritual" element={<Ritual />} />
-          <Route path="/mensual" element={<Pronto titulo="Revisión mensual" />} />
+          <Route path="/mensual" element={<Mensual />} />
           <Route path="/ajustes" element={<Pronto titulo="Ajustes" />} />
           <Route path="*" element={<Pronto titulo="Página no encontrada" />} />
         </Routes>

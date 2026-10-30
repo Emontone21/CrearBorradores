@@ -1060,3 +1060,124 @@ table.tabla {
   padding-top: 12px;
   font-weight: 700;
 }
+
+/* ───────── Hoy ───────── */
+.modos {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  gap: 4px;
+}
+.modos button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: var(--radio-sm);
+  background: transparent;
+  cursor: pointer;
+  color: var(--tinta-2);
+  text-align: left;
+}
+.modos button small {
+  font-size: 0.75rem;
+  color: var(--tinta-3);
+}
+.modos button.activo {
+  background: var(--tinta);
+  color: var(--fondo);
+}
+.modos button.activo small {
+  color: var(--tinta-3);
+}
+
+.captura-rapida textarea {
+  font-size: 1.05rem;
+  min-height: 90px;
+}
+
+.bandeja {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bandeja li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.rejilla-producir {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.4fr) minmax(260px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1200px) {
+  .rejilla-producir {
+    grid-template-columns: 1fr 1fr;
+  }
+  .rejilla-producir > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.notas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notas li {
+  padding: 10px 12px;
+  border-radius: var(--radio-sm);
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+}
+.notas li .fila {
+  margin-top: 4px;
+}
+
+/* ───────── Mensual ───────── */
+.candidato {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+.mini-historial {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 40px;
+  margin-top: 10px;
+}
+.mini-historial span {
+  width: 26px;
+  border-radius: 3px 3px 0 0;
+  background: var(--acento);
+  opacity: 0.75;
+  min-height: 2px;
+}
+.mapa-calor td.celda {
+  font-family: var(--fuente-mono);
+  font-size: 0.82rem;
+  text-align: center;
+  min-width: 56px;
+}
+.bandeja select {
+  padding: 4px 8px;
+  font-size: 0.88rem;
+}

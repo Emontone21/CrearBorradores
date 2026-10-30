@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { BaseDatos } from './db.ts';
 import { rutasAjustes } from './rutas/ajustes.ts';
+import { rutasCapturas } from './rutas/capturas.ts';
 import { rutasConexiones } from './rutas/conexiones.ts';
+import { rutasMensual } from './rutas/mensual.ts';
 import { rutasProyectos } from './rutas/proyectos.ts';
 import { rutasRevisiones } from './rutas/revisiones.ts';
 
@@ -29,6 +31,8 @@ export function crearApp(db: BaseDatos) {
   app.route('/api/proyectos', rutasProyectos(db));
   app.route('/api/conexiones', rutasConexiones(db));
   app.route('/api/revisiones', rutasRevisiones(db));
+  app.route('/api/capturas', rutasCapturas(db));
+  app.route('/api/mensual', rutasMensual(db));
   app.route('/api/ajustes', rutasAjustes(db));
 
   app.notFound((c) => c.json({ error: 'Ruta no encontrada' }, 404));

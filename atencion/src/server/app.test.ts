@@ -147,3 +147,100 @@ describe('revisiones', () => {
     expect(lista[0].reparto[0]).toMatchObject({ proyecto_id: b.id, porcentaje: 60 });
   });
 });
+
+describe('capturas', () => {
+  it('una captura sin proyecto va a la bandeja; al asignarla pasa a ser nota del proyecto', async () => {
+    const a = await crear('A');
+    const cap = await (await pedir('POST', '/api/capturas', { texto: 'Idea suelta' })).json();
+    expect(await (await pedir('GET', '/api/capturas/bandeja')).json()).toHaveLength(1);
+
+    await pedir('PATCH', `/api/capturas/${cap.id}`, { proyecto_id: a.id });
+    expect(await (await pedir('GET', '/api/capturas/bandeja')).json()).toHaveLength(0);
+    const ficha: FichaProyecto = await (await pedir('GET', `/api/proyectos/${a.id}`)).json();
+    expect(ficha.notas.map((n) => n.texto)).toEqual(['Idea suelta']);
+  });
+
+  it('archivar la saca de la bandeja', async () => {
+    const cap = await (await pedir('POST', '/api/capturas', { texto: 'Ruido' })).json();
+    await pedir('PATCH', `/api/capturas/${cap.id}`, { archivada: true });
+    expect(await (await pedir('GET', '/api/capturas/bandeja')).json()).toHaveLength(0);
+  });
+
+  it('si se borra el proyecto, sus notas vuelven a la bandeja', async () => {
+    const a = await crear('A');
+    await pedir('POST', '/api/capturas', { texto: 'Nota', proyecto_id: a.id });
+    await pedir('DELETE', `/api/proyectos/${a.id}`);
+    expect(await (await pedir('GET', '/api/capturas/bandeja')).json()).toHaveLength(1);
+  });
+});
+
+describe('revisión mensual', () => {
+  async function tresSemanasBajas() {
+    const a = await crear('A');
+    const b = await crear('B');
+    for (const s of ['2026-W40', '2026-W41', '2026-W42']) {
+      await pedir('PUT', `/api/revisiones/${s}`, {
+        temperatura: 0.5,
+        reparto: [
+          { proyecto_id: a.id, porcentaje: 95, propuesto: 95, puntuacion: 4 },
+          { proyecto_id: b.id, porcentaje: 5, propuesto: 5, puntuacion: 2 },
+        ],
+      });
+    }
+    return { a, b };
+  }
+
+  it('lista los proyectos con menos del 10 % tres semanas seguidas', async () => {
+    const { b } = await tresSemanasBajas();
+    const r = await (await pedir('GET', '/api/mensual')).json();
+    expect(r.candidatos.map((c: { proyecto_id: number }) => c.proyecto_id)).toEqual([b.id]);
+    expect(r.candidatos[0].racha).toBe(3);
+  });
+
+  it('pausar lo saca de la lista', async () => {
+    const { b } = await tresSemanasBajas();
+    await pedir('POST', '/api/mensual/decisiones', { proyecto_id: b.id, decision: 'pausar' });
+    expect((await (await pedir('GET', '/api/mensual')).json()).candidatos).toEqual([]);
+    const ficha: FichaProyecto = await (await pedir('GET', `/api/proyectos/${b.id}`)).json();
+    expect(ficha.etapa).toBe('pausado');
+  });
+
+  it('mantener lo saca de la lista hasta acumular otra racha', async () => {
+    const { b } = await tresSemanasBajas();
+    await pedir('POST', '/api/mensual/decisiones', { proyecto_id: b.id, decision: 'mantener' });
+    expect((await (await pedir('GET', '/api/mensual')).json()).candidatos).toEqual([]);
+  });
+
+  it('fusionar suma value, keys, conexiones y notas al destino y termina el absorbido', async () => {
+    const a = await crear('A', { value: 'Web lista', etiquetas: ['web'] });
+    const b = await crear('B', { value: 'Lista de contactos', keys_texto: 'Conozco a Ana', etiquetas: ['contactos'] });
+    const c = await crear('C');
+    await pedir('POST', '/api/conexiones', { origen_id: b.id, destino_id: c.id, descripcion: 'B ayuda a C' });
+    await pedir('POST', '/api/conexiones', { origen_id: a.id, destino_id: b.id, descripcion: 'A ayuda a B' });
+    await pedir('POST', '/api/capturas', { texto: 'Nota de B', proyecto_id: b.id });
+
+    const res = await pedir('POST', '/api/mensual/decisiones', { proyecto_id: b.id, decision: 'fusionar', destino_id: a.id });
+    expect(res.status).toBe(200);
+
+    const fa: FichaProyecto = await (await pedir('GET', `/api/proyectos/${a.id}`)).json();
+    expect(fa.value).toBe('Web lista\n\nDe «B»: Lista de contactos');
+    expect(fa.keys_texto).toBe('De «B»: Conozco a Ana');
+    expect(fa.etiquetas).toEqual(['contactos', 'web']);
+    expect(fa.notas.map((n) => n.texto)).toEqual(['Nota de B']);
+    // A→B se volvió A→A y se elimina; B→C pasa a A→C.
+    expect(fa.conexiones.map((x) => [x.origen_id, x.destino_id])).toEqual([[a.id, c.id]]);
+    expect(fa.actualizaciones[0].tipo).toBe('fusion');
+
+    const fb: FichaProyecto = await (await pedir('GET', `/api/proyectos/${b.id}`)).json();
+    expect(fb.etapa).toBe('terminado');
+    expect(fb.porque).toBe('Porque B'); // la intención original no se borra
+  });
+
+  it('fusionar exige destino distinto', async () => {
+    const a = await crear('A');
+    expect((await pedir('POST', '/api/mensual/decisiones', { proyecto_id: a.id, decision: 'fusionar' })).status).toBe(400);
+    expect(
+      (await pedir('POST', '/api/mensual/decisiones', { proyecto_id: a.id, decision: 'fusionar', destino_id: a.id })).status,
+    ).toBe(400);
+  });
+});

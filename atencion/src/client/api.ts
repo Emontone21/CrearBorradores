@@ -1,6 +1,9 @@
+import type { Candidato } from '../shared/mensual.ts';
 import type {
   Actualizacion,
   Ajustes,
+  Captura,
+  DecisionMensual,
   Conexion,
   EstadoConexion,
   FichaProyecto,
@@ -60,6 +63,17 @@ export const api = {
   revisiones: () => pedir<Revision[]>('GET', '/revisiones'),
   guardarRevision: (semana: string, d: { temperatura: number; notas: string; reparto: ItemReparto[] }) =>
     pedir<Revision>('PUT', `/revisiones/${semana}`, d),
+
+  bandeja: () => pedir<Captura[]>('GET', '/capturas/bandeja'),
+  crearCaptura: (d: { texto: string; proyecto_id?: number | null }) => pedir<Captura>('POST', '/capturas', d),
+  cambiarCaptura: (id: number, c: { texto?: string; proyecto_id?: number | null; archivada?: boolean }) =>
+    pedir<Captura>('PATCH', `/capturas/${id}`, c),
+  borrarCaptura: (id: number) => pedir<{ ok: true }>('DELETE', `/capturas/${id}`),
+
+  mensual: () =>
+    pedir<{ umbral: number; semanas: number; candidatos: Array<Candidato & { proyecto: Proyecto }> }>('GET', '/mensual'),
+  decidir: (d: { proyecto_id: number; decision: DecisionMensual; destino_id?: number }) =>
+    pedir<{ ok: true }>('POST', '/mensual/decisiones', d),
 
   ajustes: () => pedir<Ajustes>('GET', '/ajustes'),
   guardarAjustes: (c: Partial<Ajustes>) => pedir<Ajustes>('PUT', '/ajustes', c),

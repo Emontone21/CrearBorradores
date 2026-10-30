@@ -8,6 +8,7 @@ import { LineaTiempo } from '../componentes/LineaTiempo.tsx';
 import { Modal } from '../componentes/Modal.tsx';
 import { Nota1a5 } from '../componentes/Nota1a5.tsx';
 import { PanelConexiones } from '../componentes/PanelConexiones.tsx';
+import { PanelNotas } from '../componentes/PanelNotas.tsx';
 import { useAtencionSemana, useEtiquetas, useFicha, useMutacion, useProyectos } from '../datos.ts';
 import { estiloEtapa, fechaCorta, hace } from '../util.ts';
 
@@ -153,6 +154,11 @@ function ContenidoFicha({ p }: { p: FichaProyecto }) {
           <section className="panel">
             <h2>Conexiones</h2>
             <PanelConexiones proyecto={p} conexiones={p.conexiones} otros={otros} />
+          </section>
+
+          <section className="panel">
+            <h2>Notas</h2>
+            <PanelNotas proyectoId={p.id} notas={p.notas} />
           </section>
         </div>
       </div>
