@@ -5,14 +5,14 @@ Cada proyecto es un **token**: ninguno se gestiona aislado, todos se comparan en
 conexiones, y tu atención semanal es un presupuesto que suma **100 %**.
 
 - Funciona en tu navegador, en local. Un solo usuario, sin login.
-- Los datos viven solo en tu equipo, en `data/app.db` (SQLite). Nada se sube a la nube.
+- Los datos viven solo en tu equipo, en `data/app.db` (SQLite incluido en Node). Nada se sube a la nube.
 - El servidor escucha únicamente en `127.0.0.1`: no se ve desde la red.
 - La IA (Claude) es opcional y está desactivada por defecto.
 
 ## Instalación en Windows (doble clic)
 
-1. Instala **Node.js** versión LTS (22 o más reciente) desde [nodejs.org](https://nodejs.org). Solo
-   una vez.
+1. Instala **Node.js** versión LTS (22.13 o más reciente) desde [nodejs.org](https://nodejs.org).
+   Solo una vez.
 2. Descarga la carpeta `atencion/` y déjala donde quieras (por ejemplo, en Documentos).
 3. Haz doble clic en **`iniciar.bat`**.
 
@@ -20,8 +20,8 @@ La primera vez instala las dependencias (un par de minutos, necesita internet). 
 y la abre en el navegador en **http://127.0.0.1:3001**. Deja la ventana negra abierta mientras la uses;
 para cerrar la app, cierra esa ventana. Tus datos se guardan en `atencion/data/`.
 
-> `npm install` descarga un binario ya compilado de SQLite (`better-sqlite3`). Si fallara por no
-> encontrar uno para tu versión de Node, instala la versión LTS de Node y vuelve a intentarlo.
+No hace falta instalar Visual Studio ni nada más: la base de datos usa el SQLite que ya viene incluido
+en Node.js.
 
 ## Instalación con terminal (Windows, Mac o Linux)
 
@@ -151,7 +151,7 @@ src/
 │   ├── atencion.ts   puntuación, softmax, temperatura, redondeo a 100, ajuste de sliders
 │   ├── mensual.ts    rachas por debajo del 10 %
 │   └── semanas.ts    semanas ISO
-├── server/      Hono + better-sqlite3
+├── server/      Hono + node:sqlite
 │   ├── db.ts         conexión y migraciones
 │   ├── modelo/       acceso a datos
 │   ├── rutas/        API REST bajo /api
@@ -162,7 +162,11 @@ src/
     └── paginas/
 ```
 
-Stack: React 19, React Router, TanStack Query, Vite, Hono, better-sqlite3, zod, `@anthropic-ai/sdk`, Vitest.
+Stack: React 19, React Router, TanStack Query, Vite, Hono, `node:sqlite`, zod, `@anthropic-ai/sdk`, Vitest.
+
+Se usa el SQLite incluido en Node (`node:sqlite`) en lugar de `better-sqlite3` porque este último es
+una librería nativa: en Windows, si no hay una versión ya compilada para tu versión de Node, intenta
+compilarla y exige tener Visual Studio instalado.
 
 ### Seguridad local
 

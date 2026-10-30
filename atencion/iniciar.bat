@@ -3,11 +3,11 @@ setlocal
 title Atencion
 cd /d "%~dp0"
 
-rem ---- Node.js instalado y en version 22 o superior ----
+rem ---- Node.js instalado y en version 22.13 o superior (trae SQLite incluido) ----
 where node >nul 2>nul
 if errorlevel 1 goto :sin_node
-for /f "tokens=1 delims=." %%v in ('node -p "process.versions.node"') do set "NODE_MAYOR=%%v"
-if %NODE_MAYOR% LSS 22 goto :node_viejo
+node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)"
+if errorlevel 1 goto :node_viejo
 
 rem ---- Dependencias: la primera vez tarda; despues solo comprueba ----
 echo.
@@ -37,7 +37,7 @@ exit /b 1
 
 :node_viejo
 echo.
-echo  Tienes Node.js %NODE_MAYOR% y la app necesita la version 22 o mas reciente.
+for /f %%v in ('node -v') do echo  Tienes Node.js %%v y la app necesita la version 22.13 o mas reciente.
 echo  Instala la version LTS desde https://nodejs.org (se abre ahora en tu navegador)
 echo  y despues vuelve a hacer doble clic en iniciar.bat.
 echo.
@@ -47,9 +47,9 @@ exit /b 1
 
 :fallo_instalacion
 echo.
-echo  No se pudieron instalar las dependencias. Revisa el mensaje de arriba.
-echo  Comprueba tu conexion a internet. Si el error menciona better-sqlite3,
-echo  instala la version LTS de Node.js desde https://nodejs.org y vuelve a intentarlo.
+echo  No se pudieron instalar las dependencias. Revisa el mensaje de arriba
+echo  y comprueba tu conexion a internet. Si el problema sigue, borra la carpeta
+echo  node_modules y vuelve a hacer doble clic en iniciar.bat.
 echo.
 pause
 exit /b 1

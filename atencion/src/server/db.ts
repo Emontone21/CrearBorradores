@@ -1,9 +1,87 @@
-import Database from 'better-sqlite3';
+// SQLite viene incluido en Node (node:sqlite): no hay nada que compilar al instalar, en ningún sistema.
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import type { DatabaseSync, StatementSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-export type BaseDatos = Database.Database;
+/** Carga node:sqlite sin el aviso de «función experimental», que asusta y no aporta nada al usarla. */
+function cargarSqlite(): typeof import('node:sqlite') {
+  const emitir = process.emitWarning;
+  process.emitWarning = (() => {}) as typeof process.emitWarning;
+  try {
+    const modulo = process.getBuiltinModule('node:sqlite');
+    if (!modulo) throw new Error('falta node:sqlite');
+    return modulo;
+  } catch {
+    throw new Error(`Esta app necesita Node.js 22.13 o más reciente (tienes ${process.version}). Instala la versión LTS desde https://nodejs.org`);
+  } finally {
+    process.emitWarning = emitir;
+  }
+}
+
+class Sentencia {
+  constructor(private readonly s: StatementSync) {}
+
+  // Parámetros posicionales (?) o un objeto con nombres (@nombre), igual que en SQL.
+  run(...parametros: unknown[]): { changes: number; lastInsertRowid: number | bigint } {
+    const r = this.s.run(...(parametros as []));
+    return { changes: Number(r.changes), lastInsertRowid: r.lastInsertRowid };
+  }
+
+  get(...parametros: unknown[]): unknown {
+    return this.s.get(...(parametros as []));
+  }
+
+  all(...parametros: unknown[]): unknown[] {
+    return this.s.all(...(parametros as []));
+  }
+}
+
+/** Base SQLite con transacciones anidables (las internas usan SAVEPOINT). */
+export class BaseDatos {
+  private profundidad = 0;
+
+  constructor(
+    private readonly db: DatabaseSync,
+    /** Ruta del archivo, o ':memory:'. */
+    readonly name: string,
+  ) {}
+
+  get memory(): boolean {
+    return this.name === ':memory:';
+  }
+
+  prepare(sql: string): Sentencia {
+    return new Sentencia(this.db.prepare(sql));
+  }
+
+  exec(sql: string): void {
+    this.db.exec(sql);
+  }
+
+  /** Devuelve una función que ejecuta `fn` dentro de una transacción: o se aplica todo, o nada. */
+  transaction<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+    return (...args: A) => {
+      const nivel = this.profundidad++;
+      const punto = `punto_${nivel}`;
+      this.db.exec(nivel === 0 ? 'BEGIN' : `SAVEPOINT ${punto}`);
+      try {
+        const resultado = fn(...args);
+        this.db.exec(nivel === 0 ? 'COMMIT' : `RELEASE ${punto}`);
+        return resultado;
+      } catch (e) {
+        this.db.exec(nivel === 0 ? 'ROLLBACK' : `ROLLBACK TO ${punto}; RELEASE ${punto}`);
+        throw e;
+      } finally {
+        this.profundidad--;
+      }
+    };
+  }
+
+  close(): void {
+    this.db.close();
+  }
+}
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const RUTA_DB_POR_DEFECTO = resolve(RAIZ, 'data/app.db');
@@ -101,19 +179,20 @@ const MIGRACIONES: string[] = [
 
 export function abrirBaseDatos(ruta: string = process.env.DB_PATH ?? RUTA_DB_POR_DEFECTO): BaseDatos {
   if (ruta !== ':memory:') mkdirSync(dirname(ruta), { recursive: true });
-  const db = new Database(ruta);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  const { DatabaseSync } = cargarSqlite();
+  const db = new BaseDatos(new DatabaseSync(ruta), ruta);
+  db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA foreign_keys = ON');
   migrar(db);
   return db;
 }
 
 function migrar(db: BaseDatos) {
-  const version = db.pragma('user_version', { simple: true }) as number;
+  const { user_version: version } = db.prepare('PRAGMA user_version').get() as { user_version: number };
   for (let v = version; v < MIGRACIONES.length; v++) {
     db.transaction(() => {
       db.exec(MIGRACIONES[v]);
-      db.pragma(`user_version = ${v + 1}`);
+      db.exec(`PRAGMA user_version = ${v + 1}`);
     })();
   }
 }
