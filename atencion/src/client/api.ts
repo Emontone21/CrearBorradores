@@ -4,6 +4,7 @@ import type {
   Ajustes,
   Captura,
   DecisionMensual,
+  EstadoIA,
   Conexion,
   EstadoConexion,
   FichaProyecto,
@@ -36,6 +37,16 @@ export type DatosProyectoNuevo = Pick<Proyecto, 'nombre' | 'porque'> &
 export type CambiosProyecto = Partial<
   Pick<Proyecto, 'nombre' | 'etapa' | 'keys_texto' | 'etiquetas' | 'value' | 'impacto' | 'energia' | 'urgencia'>
 >;
+
+export type TipoIA = 'cruces' | 'fusiones';
+
+export interface VistaPreviaIA {
+  modelo: string;
+  sistema: string;
+  usuario: string;
+  huella: string;
+  proyectos: number;
+}
 
 export const api = {
   proyectos: () => pedir<Proyecto[]>('GET', '/proyectos'),
@@ -74,6 +85,13 @@ export const api = {
     pedir<{ umbral: number; semanas: number; candidatos: Array<Candidato & { proyecto: Proyecto }> }>('GET', '/mensual'),
   decidir: (d: { proyecto_id: number; decision: DecisionMensual; destino_id?: number }) =>
     pedir<{ ok: true }>('POST', '/mensual/decisiones', d),
+
+  iaEstado: () => pedir<EstadoIA>('GET', '/ia/estado'),
+  iaVistaPrevia: (tipo: TipoIA) => pedir<VistaPreviaIA>('GET', `/ia/${tipo}/vista-previa`),
+  iaCruces: (huella: string) =>
+    pedir<{ creadas: number; omitidas: number; motivo_omitidas: string[] }>('POST', '/ia/cruces', { huella }),
+  iaFusiones: (huella: string) =>
+    pedir<Array<{ absorbido: number; destino: number; razon: string }>>('POST', '/ia/fusiones', { huella }),
 
   ajustes: () => pedir<Ajustes>('GET', '/ajustes'),
   guardarAjustes: (c: Partial<Ajustes>) => pedir<Ajustes>('PUT', '/ajustes', c),

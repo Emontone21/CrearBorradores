@@ -1181,3 +1181,82 @@ table.tabla {
   padding: 4px 8px;
   font-size: 0.88rem;
 }
+
+/* ───────── IA ───────── */
+.envio-ia pre {
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border-radius: var(--radio-sm);
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  font-family: var(--fuente-mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.envio-ia details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--tinta-2);
+  margin-bottom: 8px;
+}
+.boton.ia::before {
+  content: '✦';
+  color: var(--acento);
+}
+
+/* ───────── Ajustes ───────── */
+.ajustes {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 760px;
+}
+.interruptor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.interruptor input {
+  appearance: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--borde-fuerte);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex: none;
+}
+.interruptor input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.interruptor input:checked {
+  background: var(--acento);
+}
+.interruptor input:checked::after {
+  transform: translateX(18px);
+}
+.interruptor input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pesos {
+  display: grid;
+  grid-template-columns: 110px 1fr 48px;
+  gap: 12px 16px;
+  align-items: center;
+}

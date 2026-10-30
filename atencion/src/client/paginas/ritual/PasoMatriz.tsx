@@ -1,14 +1,13 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { esActivo, type Conexion, type Proyecto } from '../../../shared/tipos.ts';
 import { api } from '../../api.ts';
+import { ConfirmarEnvioIA } from '../../componentes/ConfirmarEnvioIA.tsx';
 import { Modal } from '../../componentes/Modal.tsx';
 import { useConexiones, useMutacion } from '../../datos.ts';
 
 interface Props {
   proyectos: Proyecto[];
   activos: Proyecto[];
-  /** Hueco para el botón «Sugerir cruces» cuando la IA está activada. */
-  extra?: ReactNode;
 }
 
 const SIMBOLO: Record<Conexion['estado'], string> = { aceptada: '●', pendiente: '◌', descartada: '×' };
@@ -17,10 +16,11 @@ const SIMBOLO: Record<Conexion['estado'], string> = { aceptada: '●', pendiente
  * Self-attention: cada fila es un proyecto con su query (lo que necesita);
  * cada columna, un proyecto con sus keys (lo que aporta). Una celda = «columna aporta a fila».
  */
-export function PasoMatriz({ proyectos, activos, extra }: Props) {
+export function PasoMatriz({ proyectos, activos }: Props) {
   const conexiones = useConexiones();
   const [todasLasKeys, setTodasLasKeys] = useState(false);
   const [celda, setCelda] = useState<{ origen: Proyecto; destino: Proyecto } | null>(null);
+  const [resultadoIA, setResultadoIA] = useState<string | null>(null);
 
   const columnas = todasLasKeys ? proyectos : activos;
   const hayInactivos = proyectos.some((p) => !esActivo(p.etapa));
@@ -55,9 +55,26 @@ export function PasoMatriz({ proyectos, activos, extra }: Props) {
               Incluir pausados y terminados como keys
             </label>
           )}
-          {extra}
+          <ConfirmarEnvioIA
+            tipo="cruces"
+            etiqueta="Sugerir cruces"
+            enviar={api.iaCruces}
+            alTerminar={(r) =>
+              setResultadoIA(
+                r.creadas === 0
+                  ? 'La IA no encontró cruces nuevos.'
+                  : `La IA sugirió ${r.creadas} ${r.creadas === 1 ? 'cruce' : 'cruces'}: quedan como pendientes para que los aceptes o descartes.` +
+                      (r.omitidas ? ` (${r.omitidas} omitidas: ${r.motivo_omitidas.join('; ')})` : ''),
+              )
+            }
+          />
         </div>
       </div>
+      {resultadoIA && (
+        <div className="aviso ok" style={{ marginBottom: 12 }}>
+          {resultadoIA}
+        </div>
+      )}
 
       <div className="matriz-contenedor">
         <table className="matriz">

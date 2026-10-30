@@ -1,14 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import type { Candidato } from '../../shared/mensual.ts';
 import { esActivo, type Proyecto } from '../../shared/tipos.ts';
 import { api } from '../api.ts';
-import { useMutacion, useProyectos } from '../datos.ts';
+import { ConfirmarEnvioIA } from '../componentes/ConfirmarEnvioIA.tsx';
+import { useEstadoIA, useMutacion, useProyectos } from '../datos.ts';
 
-export function Mensual({ extra }: { extra?: ReactNode }) {
+export function Mensual() {
   const mensual = useQuery({ queryKey: ['mensual'], queryFn: api.mensual });
   const proyectos = useProyectos();
+  const estadoIA = useEstadoIA();
+  const [fusionesIA, setFusionesIA] = useState<Array<{ absorbido: number; destino: number; razon: string }> | null>(null);
 
   return (
     <>
@@ -32,7 +35,6 @@ export function Mensual({ extra }: { extra?: ReactNode }) {
             <h2>
               Con menos del {mensual.data!.umbral} % durante {mensual.data!.semanas} revisiones seguidas o más
             </h2>
-            {extra}
           </div>
           {mensual.data!.candidatos.length === 0 ? (
             <div className="vacio">
@@ -42,6 +44,36 @@ export function Mensual({ extra }: { extra?: ReactNode }) {
             mensual.data!.candidatos.map((c) => (
               <TarjetaCandidato key={c.proyecto_id} c={c} proyectos={proyectos.data ?? []} />
             ))
+          )}
+
+          {estadoIA.data?.activada && (
+          <section className="panel">
+            <div className="fila separar">
+              <div>
+                <h2>Posibles fusiones</h2>
+                <p className="muy-tenue">Proyectos que se solapan tanto que podrían ser uno solo.</p>
+              </div>
+              <ConfirmarEnvioIA tipo="fusiones" etiqueta="Detectar fusiones" enviar={api.iaFusiones} alTerminar={setFusionesIA} />
+            </div>
+            {fusionesIA && (
+              <div style={{ marginTop: 14 }}>
+                {fusionesIA.length === 0 ? (
+                  <div className="aviso ok">La IA no ve proyectos que convenga fusionar.</div>
+                ) : (
+                  <ul className="lista-conexiones">
+                    {fusionesIA.map((f) => (
+                      <SugerenciaFusion
+                        key={`${f.absorbido}-${f.destino}`}
+                        f={f}
+                        proyectos={proyectos.data ?? []}
+                        alDecidir={() => setFusionesIA((l) => l?.filter((x) => x !== f) ?? null)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </section>
           )}
 
           <HistorialAtencion proyectos={proyectos.data ?? []} />
@@ -126,6 +158,49 @@ function TarjetaCandidato({ c, proyectos }: { c: Candidato & { proyecto: Proyect
         </button>
       </div>
     </section>
+  );
+}
+
+function SugerenciaFusion({
+  f,
+  proyectos,
+  alDecidir,
+}: {
+  f: { absorbido: number; destino: number; razon: string };
+  proyectos: Proyecto[];
+  alDecidir: () => void;
+}) {
+  const fusionar = useMutacion(api.decidir, alDecidir);
+  const absorbido = proyectos.find((p) => p.id === f.absorbido);
+  const destino = proyectos.find((p) => p.id === f.destino);
+  if (!absorbido || !destino) return null;
+  return (
+    <li className="pendiente">
+      <div>
+        <strong>{absorbido.nombre}</strong> <span className="flecha">→</span> <strong>{destino.nombre}</strong>
+        <span className="muy-tenue"> · sugerido por IA</span>
+      </div>
+      <p className="tenue">{f.razon}</p>
+      {fusionar.error && <div className="aviso error">{fusionar.error.message}</div>}
+      <div className="fila" style={{ marginTop: 6 }}>
+        <button
+          className="boton chico"
+          disabled={fusionar.isPending}
+          onClick={() =>
+            confirm(
+              `¿Fusionar «${absorbido.nombre}» en «${destino.nombre}»?\n\n` +
+                `Su value, keys, etiquetas, conexiones y notas pasan a «${destino.nombre}». ` +
+                `«${absorbido.nombre}» queda como terminado, con su «por qué» e historial intactos.`,
+            ) && fusionar.mutate({ proyecto_id: absorbido.id, decision: 'fusionar', destino_id: destino.id })
+          }
+        >
+          Fusionar
+        </button>
+        <button className="boton chico fantasma" onClick={alDecidir}>
+          Ignorar
+        </button>
+      </div>
+    </li>
   );
 }
 

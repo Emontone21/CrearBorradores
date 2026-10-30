@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { BaseDatos } from './db.ts';
+import type { ConfigIA } from './ia/cliente.ts';
 import { rutasAjustes } from './rutas/ajustes.ts';
 import { rutasCapturas } from './rutas/capturas.ts';
 import { rutasConexiones } from './rutas/conexiones.ts';
+import { rutasIA } from './rutas/ia.ts';
 import { rutasMensual } from './rutas/mensual.ts';
 import { rutasProyectos } from './rutas/proyectos.ts';
 import { rutasRevisiones } from './rutas/revisiones.ts';
@@ -11,7 +13,8 @@ import { rutasRevisiones } from './rutas/revisiones.ts';
 const HOSTS_LOCALES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 export const CABECERA_APP = 'x-atencion';
 
-export function crearApp(db: BaseDatos) {
+/** `ia` es null cuando no hay ANTHROPIC_API_KEY: la app funciona completa sin ella. */
+export function crearApp(db: BaseDatos, ia: ConfigIA | null = null) {
   const app = new Hono();
 
   // Defensa para una API local sin login:
@@ -33,7 +36,8 @@ export function crearApp(db: BaseDatos) {
   app.route('/api/revisiones', rutasRevisiones(db));
   app.route('/api/capturas', rutasCapturas(db));
   app.route('/api/mensual', rutasMensual(db));
-  app.route('/api/ajustes', rutasAjustes(db));
+  app.route('/api/ajustes', rutasAjustes(db, ia !== null));
+  app.route('/api/ia', rutasIA(db, ia));
 
   app.notFound((c) => c.json({ error: 'Ruta no encontrada' }, 404));
 

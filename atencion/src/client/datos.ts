@@ -19,6 +19,7 @@ export const useFicha = (id: number) => useQuery({ queryKey: ['ficha', id], quer
 export const useEtiquetas = () => useQuery({ queryKey: ['etiquetas'], queryFn: api.etiquetas });
 export const useConexiones = () => useQuery({ queryKey: ['conexiones'], queryFn: () => api.conexiones() });
 export const useAjustes = () => useQuery({ queryKey: ['ajustes'], queryFn: api.ajustes });
+export const useEstadoIA = () => useQuery({ queryKey: ['ia-estado'], queryFn: api.iaEstado });
 
 /** Atención de la semana: la revisión de esta semana o, si aún no existe, la última guardada. */
 export function useAtencionSemana() {

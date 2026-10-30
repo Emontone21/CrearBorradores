@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { crearApp } from './app.ts';
 import { abrirBaseDatos, RUTA_DB_POR_DEFECTO } from './db.ts';
+import { configurarIA } from './ia/cliente.ts';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
 
@@ -16,7 +17,8 @@ const PUERTO = Number(process.env.PUERTO ?? 3001);
 const produccion = process.argv.includes('--produccion');
 
 const db = abrirBaseDatos();
-const app = crearApp(db);
+const ia = configurarIA(process.env);
+const app = crearApp(db, ia);
 
 if (produccion) {
   const cliente = resolve(RAIZ, 'dist/client');
@@ -28,10 +30,11 @@ if (produccion) {
 
 serve({ fetch: app.fetch, hostname: HOST, port: PUERTO }, () => {
   const rutaDb = process.env.DB_PATH ?? relative(process.cwd(), RUTA_DB_POR_DEFECTO);
+  const estadoIA = ia ? `disponible (${ia.modelo}); actívala en Ajustes` : 'sin clave en .env, desactivada';
   if (produccion) {
-    console.log(`\n  Atención lista en http://${HOST}:${PUERTO}\n  Datos: ${rutaDb}\n`);
+    console.log(`\n  Atención lista en http://${HOST}:${PUERTO}\n  Datos: ${rutaDb}\n  IA: ${estadoIA}\n`);
   } else {
-    console.log(`  API en http://${HOST}:${PUERTO} · datos: ${rutaDb}`);
+    console.log(`  API en http://${HOST}:${PUERTO} · datos: ${rutaDb} · IA: ${estadoIA}`);
   }
 });
 
