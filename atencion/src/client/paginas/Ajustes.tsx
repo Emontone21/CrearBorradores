@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { PESOS_IGUALES } from '../../shared/atencion.ts';
 import type { Pesos } from '../../shared/tipos.ts';
 import { api } from '../api.ts';
@@ -16,6 +17,8 @@ export function Ajustes() {
       <div className="ajustes">
         <SeccionIA />
         <SeccionPesos />
+        <SeccionDatos />
+        <SeccionEjemplos />
       </div>
     </>
   );
@@ -138,6 +141,90 @@ function SeccionPesos() {
         </button>
         {guardado && !cambiado && <span className="muy-tenue">Guardado.</span>}
       </div>
+    </section>
+  );
+}
+
+function SeccionDatos() {
+  const entrada = useRef<HTMLInputElement>(null);
+  const [mensaje, setMensaje] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const importar = useMutacion(api.importar, (r) =>
+    setMensaje({
+      tipo: 'ok',
+      texto: `Importados ${r.proyectos} proyectos.${r.copia ? ` Copia de los datos anteriores: ${r.copia}` : ''}`,
+    }),
+  );
+
+  const alElegir = async (archivo: File | undefined) => {
+    if (entrada.current) entrada.current.value = '';
+    if (!archivo) return;
+    setMensaje(null);
+    let contenido: unknown;
+    try {
+      contenido = JSON.parse(await archivo.text());
+    } catch {
+      setMensaje({ tipo: 'error', texto: 'El archivo no es un JSON válido.' });
+      return;
+    }
+    if (
+      confirm(
+        `¿Importar «${archivo.name}»?\n\nReemplaza TODOS tus datos actuales. Antes se guarda una copia automática en data/backups/.`,
+      )
+    ) {
+      importar.mutate(contenido);
+    }
+  };
+
+  return (
+    <section className="panel">
+      <h2>Tus datos</h2>
+      <p className="tenue" style={{ marginBottom: 14 }}>
+        Exporta todo (proyectos, historial, conexiones, revisiones, capturas y ajustes) en un archivo JSON para guardarlo
+        o llevarlo a otro equipo. Importar reemplaza todo lo actual.
+      </p>
+      <div className="fila">
+        <a className="boton" href="/api/datos/exportar" download>
+          Exportar todo (JSON)
+        </a>
+        <button className="boton" disabled={importar.isPending} onClick={() => entrada.current?.click()}>
+          Importar desde JSON…
+        </button>
+        <input
+          ref={entrada}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => alElegir(e.target.files?.[0])}
+        />
+      </div>
+      {(mensaje || importar.error) && (
+        <div className={`aviso ${importar.error || mensaje?.tipo === 'error' ? 'error' : 'ok'}`} style={{ marginTop: 12 }}>
+          {importar.error?.message ?? mensaje?.texto}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SeccionEjemplos() {
+  const ejemplos = useQuery({ queryKey: ['ejemplos'], queryFn: api.ejemplos });
+  const borrar = useMutacion(api.borrarEjemplos);
+  if (!ejemplos.data?.cantidad) return null;
+  return (
+    <section className="panel">
+      <h2>Proyectos de ejemplo</h2>
+      <p className="tenue" style={{ marginBottom: 14 }}>
+        Hay {ejemplos.data.cantidad} proyectos de ejemplo para que veas cómo funciona el método. Cuando quieras, bórralos
+        con sus conexiones e historial; tus proyectos no se tocan.
+      </p>
+      <button
+        className="boton peligro"
+        disabled={borrar.isPending}
+        onClick={() => confirm('¿Borrar los proyectos de ejemplo?') && borrar.mutate(undefined)}
+      >
+        Borrar proyectos de ejemplo
+      </button>
+      {borrar.error && <div className="aviso error">{borrar.error.message}</div>}
     </section>
   );
 }

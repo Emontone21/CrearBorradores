@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { crearApp } from './app.ts';
 import { abrirBaseDatos, RUTA_DB_POR_DEFECTO } from './db.ts';
+import { cargarEjemplosSiHaceFalta } from './ejemplos.ts';
 import { configurarIA } from './ia/cliente.ts';
 
 const RAIZ = resolve(import.meta.dirname, '../..');
@@ -17,6 +18,7 @@ const PUERTO = Number(process.env.PUERTO ?? 3001);
 const produccion = process.argv.includes('--produccion');
 
 const db = abrirBaseDatos();
+if (cargarEjemplosSiHaceFalta(db)) console.log('  Primera vez: se cargaron 3 proyectos de ejemplo (puedes borrarlos en Ajustes).');
 const ia = configurarIA(process.env);
 const app = crearApp(db, ia);
 

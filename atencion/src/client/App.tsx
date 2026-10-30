@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from 'react-router';
+import { Link, NavLink, Route, Routes } from 'react-router';
 import { Ajustes } from './paginas/Ajustes.tsx';
 import { Ficha } from './paginas/Ficha.tsx';
 import { Hoy } from './paginas/Hoy.tsx';
@@ -15,11 +15,11 @@ function Logo() {
   );
 }
 
-function Pronto({ titulo }: { titulo: string }) {
+function NoEncontrada() {
   return (
-    <div className="cabecera">
-      <h1>{titulo}</h1>
-      <p className="tenue">Disponible en una próxima fase.</p>
+    <div className="pila">
+      <h1>Página no encontrada</h1>
+      <Link to="/">← Volver al tablero</Link>
     </div>
   );
 }
@@ -48,7 +48,7 @@ export function App() {
           <Route path="/ritual" element={<Ritual />} />
           <Route path="/mensual" element={<Mensual />} />
           <Route path="/ajustes" element={<Ajustes />} />
-          <Route path="*" element={<Pronto titulo="Página no encontrada" />} />
+          <Route path="*" element={<NoEncontrada />} />
         </Routes>
       </main>
     </div>

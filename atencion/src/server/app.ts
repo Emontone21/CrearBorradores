@@ -5,6 +5,7 @@ import type { ConfigIA } from './ia/cliente.ts';
 import { rutasAjustes } from './rutas/ajustes.ts';
 import { rutasCapturas } from './rutas/capturas.ts';
 import { rutasConexiones } from './rutas/conexiones.ts';
+import { rutasDatos } from './rutas/datos.ts';
 import { rutasIA } from './rutas/ia.ts';
 import { rutasMensual } from './rutas/mensual.ts';
 import { rutasProyectos } from './rutas/proyectos.ts';
@@ -38,6 +39,7 @@ export function crearApp(db: BaseDatos, ia: ConfigIA | null = null) {
   app.route('/api/mensual', rutasMensual(db));
   app.route('/api/ajustes', rutasAjustes(db, ia !== null));
   app.route('/api/ia', rutasIA(db, ia));
+  app.route('/api/datos', rutasDatos(db));
 
   app.notFound((c) => c.json({ error: 'Ruta no encontrada' }, 404));
 

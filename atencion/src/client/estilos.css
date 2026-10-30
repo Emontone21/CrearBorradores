@@ -1260,3 +1260,14 @@ table.tabla {
   gap: 12px 16px;
   align-items: center;
 }
+.tarjeta > .fila.separar {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+.tarjeta .ejemplo {
+  flex: none;
+  padding-top: 3px;
+}
+.lateral {
+  align-self: start;
+}

@@ -93,6 +93,10 @@ export const api = {
   iaFusiones: (huella: string) =>
     pedir<Array<{ absorbido: number; destino: number; razon: string }>>('POST', '/ia/fusiones', { huella }),
 
+  importar: (contenido: unknown) => pedir<{ copia: string | null; proyectos: number }>('POST', '/datos/importar', contenido),
+  ejemplos: () => pedir<{ cantidad: number }>('GET', '/datos/ejemplos'),
+  borrarEjemplos: () => pedir<{ borrados: number }>('DELETE', '/datos/ejemplos'),
+
   ajustes: () => pedir<Ajustes>('GET', '/ajustes'),
   guardarAjustes: (c: Partial<Ajustes>) => pedir<Ajustes>('PUT', '/ajustes', c),
 };
