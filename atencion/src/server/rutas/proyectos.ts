@@ -4,6 +4,7 @@ import { ETAPAS } from '../../shared/tipos.ts';
 import type { BaseDatos } from '../db.ts';
 import { idDeRuta, noEncontrado, nota1a5, textoCorto, textoLargo, validar } from '../http.ts';
 import {
+  avancesDesde,
   borrarProyecto,
   cambiarPorque,
   crearProyecto,
@@ -60,6 +61,11 @@ export function rutasProyectos(db: BaseDatos) {
   r.get('/', (c) => c.json(listarProyectos(db)));
 
   r.get('/etiquetas', (c) => c.json(etiquetasEnUso(db)));
+
+  r.get('/avances', (c) => {
+    const desde = validar(z.iso.datetime({ offset: true }), c.req.query('desde'));
+    return c.json(avancesDesde(db, new Date(desde).toISOString()));
+  });
 
   r.post('/', async (c) => {
     const datos = validar(esquemaNuevo, await c.req.json());

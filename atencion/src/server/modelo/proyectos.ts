@@ -74,6 +74,13 @@ export function actualizacionesDe(db: BaseDatos, proyectoId: number): Actualizac
     .all(proyectoId) as Actualizacion[];
 }
 
+/** Actualizaciones (avances) registradas desde una fecha, de todos los proyectos. */
+export function avancesDesde(db: BaseDatos, desde: string): Actualizacion[] {
+  return db
+    .prepare("SELECT * FROM actualizaciones WHERE tipo = 'avance' AND fecha >= ? ORDER BY fecha DESC, id DESC")
+    .all(desde) as Actualizacion[];
+}
+
 export function fichaProyecto(db: BaseDatos, id: number): FichaProyecto | undefined {
   const p = obtenerProyecto(db, id);
   if (!p) return undefined;

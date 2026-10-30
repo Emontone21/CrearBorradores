@@ -1,4 +1,5 @@
 import type {
+  Actualizacion,
   Ajustes,
   Conexion,
   EstadoConexion,
@@ -37,6 +38,8 @@ export const api = {
   proyectos: () => pedir<Proyecto[]>('GET', '/proyectos'),
   ficha: (id: number) => pedir<FichaProyecto>('GET', `/proyectos/${id}`),
   etiquetas: () => pedir<string[]>('GET', '/proyectos/etiquetas'),
+  avancesDesde: (desde: Date) =>
+    pedir<Actualizacion[]>('GET', `/proyectos/avances?desde=${encodeURIComponent(desde.toISOString())}`),
   crearProyecto: (d: DatosProyectoNuevo) => pedir<Proyecto>('POST', '/proyectos', d),
   editarProyecto: (id: number, c: CambiosProyecto) => pedir<Proyecto>('PATCH', `/proyectos/${id}`, c),
   registrarActualizacion: (id: number, d: { descripcion: string; query_nuevo?: string }) =>
