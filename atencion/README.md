@@ -14,9 +14,12 @@ conexiones, y tu atención semanal es un presupuesto que suma **100 %**.
 Necesitas **Node.js 22 o más reciente** ([nodejs.org](https://nodejs.org), versión LTS).
 Comprueba la versión con `node -v`.
 
+La app vive en la carpeta `atencion/` de este repositorio, separada del resto. Todos los comandos se
+ejecutan dentro de esa carpeta:
+
 ```bash
-git clone https://github.com/emontone21/atencion.git
-cd atencion
+git clone https://github.com/emontone21/crearborradores.git
+cd crearborradores/atencion
 npm install
 ```
 
@@ -117,7 +120,7 @@ La clave solo la lee el servidor local y nunca llega al navegador. `.env` está 
 
 ## Tus datos
 
-- Todo está en `data/app.db` (fuera de git). Para hacer una copia basta con copiar esa carpeta con la app
+- Todo está en `atencion/data/app.db` (fuera de git). Para hacer una copia basta con copiar esa carpeta con la app
   cerrada, o usar **Ajustes → Exportar todo (JSON)**.
 - **Importar** reemplaza todos los datos actuales. Antes guarda una copia automática en `data/backups/`.
   Si el archivo no es válido o es incoherente, no cambia nada.
