@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { crearApp } from './app.ts';
@@ -30,14 +31,44 @@ if (produccion) {
   app.get('*', serveStatic({ root: raizRelativa, path: 'index.html' }));
 }
 
-serve({ fetch: app.fetch, hostname: HOST, port: PUERTO }, () => {
+const URL_APP = `http://${HOST}:${PUERTO}`;
+const abrir = process.argv.includes('--abrir');
+
+/** Abre la app en el navegador predeterminado. Si no se puede, queda la dirección impresa en la consola. */
+function abrirNavegador(url: string) {
+  const [comando, args]: [string, string[]] =
+    process.platform === 'win32'
+      ? ['cmd', ['/c', 'start', '', url]]
+      : process.platform === 'darwin'
+        ? ['open', [url]]
+        : ['xdg-open', [url]];
+  try {
+    const hijo = spawn(comando, args, { detached: true, stdio: 'ignore', windowsHide: true });
+    hijo.on('error', () => {});
+    hijo.unref();
+  } catch {
+    // sin navegador disponible: basta con la dirección impresa
+  }
+}
+
+const servidor = serve({ fetch: app.fetch, hostname: HOST, port: PUERTO }, () => {
   const rutaDb = process.env.DB_PATH ?? relative(process.cwd(), RUTA_DB_POR_DEFECTO);
   const estadoIA = ia ? `disponible (${ia.modelo}); actívala en Ajustes` : 'sin clave en .env, desactivada';
   if (produccion) {
-    console.log(`\n  Atención lista en http://${HOST}:${PUERTO}\n  Datos: ${rutaDb}\n  IA: ${estadoIA}\n`);
+    console.log(`\n  Atención lista en ${URL_APP}\n  Datos: ${rutaDb}\n  IA: ${estadoIA}\n`);
   } else {
-    console.log(`  API en http://${HOST}:${PUERTO} · datos: ${rutaDb} · IA: ${estadoIA}`);
+    console.log(`  API en ${URL_APP} · datos: ${rutaDb} · IA: ${estadoIA}`);
   }
+  if (abrir) abrirNavegador(URL_APP);
+});
+
+servidor.on('error', (e: NodeJS.ErrnoException) => {
+  if (e.code !== 'EADDRINUSE') throw e;
+  console.error(`\n  El puerto ${PUERTO} ya está en uso: probablemente la app ya está abierta en otra ventana.`);
+  console.error(`  Ábrela en ${URL_APP}, o elige otro puerto con la variable PUERTO.\n`);
+  if (abrir) abrirNavegador(URL_APP);
+  db.close();
+  process.exitCode = 1;
 });
 
 const cerrar = () => {

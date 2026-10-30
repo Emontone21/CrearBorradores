@@ -9,10 +9,21 @@ conexiones, y tu atención semanal es un presupuesto que suma **100 %**.
 - El servidor escucha únicamente en `127.0.0.1`: no se ve desde la red.
 - La IA (Claude) es opcional y está desactivada por defecto.
 
-## Instalación
+## Instalación en Windows (doble clic)
 
-Necesitas **Node.js 22 o más reciente** ([nodejs.org](https://nodejs.org), versión LTS).
-Comprueba la versión con `node -v`.
+1. Instala **Node.js** versión LTS (22 o más reciente) desde [nodejs.org](https://nodejs.org). Solo
+   una vez.
+2. Descarga la carpeta `atencion/` y déjala donde quieras (por ejemplo, en Documentos).
+3. Haz doble clic en **`iniciar.bat`**.
+
+La primera vez instala las dependencias (un par de minutos, necesita internet). Después arranca la app
+y la abre en el navegador en **http://127.0.0.1:3001**. Deja la ventana negra abierta mientras la uses;
+para cerrar la app, cierra esa ventana. Tus datos se guardan en `atencion/data/`.
+
+> `npm install` descarga un binario ya compilado de SQLite (`better-sqlite3`). Si fallara por no
+> encontrar uno para tu versión de Node, instala la versión LTS de Node y vuelve a intentarlo.
+
+## Instalación con terminal (Windows, Mac o Linux)
 
 La app vive en la carpeta `atencion/` de este repositorio, separada del resto. Todos los comandos se
 ejecutan dentro de esa carpeta:
@@ -23,19 +34,19 @@ cd crearborradores/atencion
 npm install
 ```
 
-> **Windows:** `npm install` descarga un binario ya compilado de SQLite (`better-sqlite3`). Si fallara
-> por no encontrar uno para tu versión de Node, instala la versión LTS de Node y repite `npm install`.
-
 ## Uso
 
 ### Uso diario
 
 ```bash
-npm start
+npm run iniciar   # compila, arranca y abre el navegador
+npm start         # lo mismo, sin abrir el navegador
 ```
 
-Compila la interfaz y abre todo en un solo puerto: **http://127.0.0.1:3001**.
-Para cerrarla, `Ctrl + C` en la terminal.
+Todo queda en un solo puerto: **http://127.0.0.1:3001**. Para cerrarla, `Ctrl + C` en la terminal.
+
+Para actualizar la app a una versión nueva, reemplaza los archivos pero **conserva la carpeta
+`data/`**: ahí están tus proyectos.
 
 ### Modo desarrollo
 
